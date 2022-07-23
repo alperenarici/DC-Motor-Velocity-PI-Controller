@@ -1,0 +1,152 @@
+// Alperen ARICI
+// PI Controller for a DC Motor
+// UART Communication
+
+#include <16F877A.h>
+#device ADC=10
+#include <stdlib.h>
+#FUSES NOWDT //No Watch Dog Timer
+#FUSES NOBROWNOUT //No brownout reset
+#FUSES NOLVP //No low voltage prgming, B3(PIC16) or B5(PIC18) used for I/O
+#FUSES XT,NOPROTECT,NOPUT, NODEBUG, NOCPD
+#use delay(crystal=20000000)
+#use rs232 (baud=9600,xmit=PIN_C6, rcv=PIN_C7, parity=N, stop=1) // configuration for serial communication
+
+int counter = 0; // counter to be used
+char strInput[4]; // string array for input characters
+float inputString; // inputString value to be used
+
+unsigned long int revAngle = 0.0f;
+unsigned long int prevAngle = 0.0f;
+
+unsigned long  result_1; //variable for A0 value
+
+float pwm=0;
+float actVelo = 0.0f;
+float refVelo = 0.0f;
+float error = 0.0f;
+float integral=0.0f;
+float dt;
+
+unsigned long int C=0;
+unsigned long int D;
+unsigned long int E;
+
+float kp=0.0f;
+float ki=0.0f;
+
+#int_ext
+void external_interrupt()
+{
+ revAngle++;
+}
+
+#int_timer0
+void tmr_int()
+{
+ set_timer0(60);
+ D++;
+ E++;
+ 
+ if (E == 10)
+ {
+    actVelo = (revAngle - prevAngle)*0.2863f;
+    prevAngle = revAngle;
+    E = 0;
+ }
+ 
+ if (D>=C)
+ {
+ dt=C*0.01;
+ error=refVelo-actVelo;
+ integral=integral+dt*error;
+ pwm=error*kp+ki*integral;
+ D = 0;
+ }
+}
+
+void main()
+{
+ printf("Program Start\n");
+ 
+ port_b_pullups(TRUE);
+ enable_interrupts(GLOBAL);
+ clear_interrupt(int_ext);
+ setup_timer_0(RTCC_INTERNAL | RTCC_DIV_256);
+ set_timer0(60);
+ enable_interrupts(int_timer0);
+ enable_interrupts(int_ext);
+ setup_adc_ports(AN0_AN1_AN3); //A0 A1 A3 are configured for analog input pin
+ setup_adc(ADC_CLOCK_DIV_32); //enable ADC and set clock for ADC
+
+ setup_ccp1(CCP_PWM); //4kHz PWM signal output at CCP1 pin 17
+ setup_timer_2(T2_DIV_BY_16, 255, 1);
+
+
+ while(TRUE)
+ {     
+ 
+ set_adc_channel(0); // next analog reading will be from channel 0
+ delay_us(10); //allow time after channel selection and reading
+ result_1 = read_adc(); //start and read A/D
+ delay_us(10); //allow time after channel selection and reading
+ refVelo=result_1*0.074f;
+   
+   if(kbhit()) // if data has been received
+   {
+      char i = getc(); // UART read
+      
+      if (i =='/') // special character for serial input. If the received character is "/", then this condition is called
+      {
+      counter = 0; // counter to be zero again
+      printf("Incoming Data:%s  ",strInput); // print string array to the screen
+      float inputString = atof(strInput); // change string array to long variable
+      C= (unsigned long int)inputString;
+      printf("C value:%lu  ",C); // print string array to the screen
+      memset(strInput, 0, 4); // clear the string array
+      }
+     
+     else if (i =='*') // special character for serial input. If the received character is *, then this condition is called
+     {
+     counter = 0; // counter to be zero again
+     printf("Incoming Data:%s ",strInput); // print string array to the screen
+     float  inputString = atof(strInput); // change string array to long variable
+     kp= inputString;
+     printf("kp value:%f  ",kp); // print string array to the screen
+     memset(strInput, 0, 4); // clear the string array
+     }
+     
+     else if (i == '-') // special character for serial input. If the received character is "-", then this condition is called
+     {
+     counter = 0; // counter to be zero again
+     printf("Incoming Data:%s ",strInput); // print string array to the screen
+     float  inputString = atof(strInput); // change string array to long variable
+     ki= inputString;
+     printf("ki value:%f  ",ki); // print string array to the screen
+     memset(strInput, 0, 4); // clear the string array
+     }
+     
+     else
+     {
+     strInput[counter] = i; // attend input character to the string array
+     counter++; // increase the counter by 1
+     }
+ }
+
+if(pwm > 1023){pwm = 1023;}
+if(pwm <0 ){pwm = 0;}
+
+signed long int pwmOut = (signed long int)pwm;
+set_pwm1_duty(pwmOut); //set pulse-width during which signal is high
+
+   printf("error:%f,  ",error);
+   printf("refVelo:%f,  ",refVelo);
+   printf("actVelo:%f  ",actVelo);
+   printf("sampling_t:%lu  ",C);   
+   printf("ki:%f  ",ki);
+   printf("kp:%f  \n",kp);
+ }
+}
+
+
+
