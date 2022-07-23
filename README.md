@@ -2,7 +2,7 @@
 Basic Proportional – Integral (PI) control to control a DC Motor with encoder by using a microcontroller(PIC16F877A).
 
 
-Velocity control to a DC Motor in one direction, whose velocity would be extracted with an encoder.
+Velocity control of a DC Motor in one direction, whose velocity would be extracted with an encoder.
 
 The reference velocity is generated with a potentiometer.
 
