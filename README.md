@@ -13,3 +13,5 @@ The controller gains (Kp and Ki) and sampling time of the control algorithm is c
 The sampling time is arranged with the timer feature of the microcontroller. 
 
 The controller gains can be tuned manually with a default sampling time rate.
+
+Code is written via CCS C Compiler app with C language.
